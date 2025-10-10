@@ -79,3 +79,17 @@ curl -X POST http://127.0.0.1:7522/api/email \
 ```
 
 La API genera un correo con todo el contenido recibido convertido a una tabla HTML y adjunta una versión de texto plano para compatibilidad.
+
+Si el envío se completa correctamente, la API responderá con un JSON que indica el método usado (`brevo` o `smtp`), junto con un mensaje descriptivo y, cuando esté disponible, el identificador del mensaje o la lista de destinatarios aceptados. Ejemplo:
+
+```json
+{
+  "success": true,
+  "method": "smtp",
+  "message": "Correo enviado mediante SMTP.",
+  "accepted": ["destinatario@example.com"],
+  "messageId": "<abc123@servidor>"
+}
+```
+
+Si ocurre un error, la API devolverá un código de estado `4xx` o `5xx` con un objeto JSON que describe el problema.

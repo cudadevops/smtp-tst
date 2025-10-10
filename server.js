@@ -192,19 +192,44 @@ async function sendViaBrevo(mailOptions) {
     const errorBody = await response.text();
     throw new Error(`Brevo API respondió ${response.status}: ${errorBody}`);
   }
+
+  let parsedBody;
+  try {
+    parsedBody = await response.json();
+  } catch (error) {
+    parsedBody = undefined;
+  }
+
+  const messageId = parsedBody?.messageId ?? parsedBody?.messageIds?.[0] ?? null;
+
+  return {
+    method: 'brevo',
+    messageId,
+    message: 'Correo enviado mediante Brevo.',
+  };
 }
 
 async function sendEmail(mailOptions) {
   if (brevoApiKey) {
     try {
-      await sendViaBrevo(mailOptions);
-      return;
+      return await sendViaBrevo(mailOptions);
     } catch (error) {
       console.error('Error al enviar con Brevo, intentando SMTP como respaldo.', error);
     }
   }
 
-  await transporter.sendMail(mailOptions);
+  const info = await transporter.sendMail(mailOptions);
+
+  if (!info?.accepted || info.accepted.length === 0) {
+    throw new Error('El servidor SMTP no aceptó ningún destinatario.');
+  }
+
+  return {
+    method: 'smtp',
+    accepted: info.accepted,
+    messageId: info.messageId ?? null,
+    message: 'Correo enviado mediante SMTP.',
+  };
 }
 
 app.post('/api/email', async (req, res) => {
@@ -251,8 +276,14 @@ app.post('/api/email', async (req, res) => {
   };
 
   try {
-    await sendEmail(mailOptions);
-    return res.json({ success: true });
+    const deliveryResult = await sendEmail(mailOptions);
+    return res.json({
+      success: true,
+      method: deliveryResult.method,
+      message: deliveryResult.message,
+      ...(deliveryResult.messageId ? { messageId: deliveryResult.messageId } : {}),
+      ...(deliveryResult.accepted ? { accepted: deliveryResult.accepted } : {}),
+    });
   } catch (error) {
     console.error('Error al enviar el correo', error);
     return res.status(500).json({ error: 'No se pudo enviar el correo electrónico.' });
