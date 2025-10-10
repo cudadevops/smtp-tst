@@ -1,2 +1,2 @@
 # smtp-tst
-python smtp over TLS
+node smtp over TLS
