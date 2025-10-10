@@ -1,6 +1,6 @@
 # smtp-tst
 
-Servicio API mínimo en Node.js que recibe datos de formularios y los envía como correo electrónico mediante SMTP con STARTTLS (puerto 587). El servidor solo escucha en `127.0.0.1:7522` por defecto para evitar accesos remotos accidentales.
+Servicio API mínimo en Node.js que recibe datos de formularios y los envía como correo electrónico. Cuando se define una clave `BREVO_API_KEY`, la API intenta primero enviar el mensaje mediante Brevo y, si falla, recurre al servidor SMTP configurado con STARTTLS (puerto 587). El servidor solo escucha en `127.0.0.1:7522` por defecto para evitar accesos remotos accidentales.
 
 ## Requisitos previos
 
@@ -32,6 +32,7 @@ Servicio API mínimo en Node.js que recibe datos de formularios y los envía com
 
    Variables opcionales:
 
+   - `BREVO_API_KEY`: clave de API de Brevo (Sendinblue). Si se establece, la API intentará usar Brevo antes de pasar al SMTP.
    - `API_PORT`: puerto local para la API (por defecto `7522`).
    - `API_HOST`: interfaz de red para escuchar (por defecto `127.0.0.1`).
    - `EXTRA_FIELD_LIMIT`: límite de campos adicionales permitidos (por defecto `30`).

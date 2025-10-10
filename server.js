@@ -26,6 +26,8 @@ if (missingEnv.length) {
   process.exit(1);
 }
 
+const brevoApiKey = process.env.BREVO_API_KEY?.trim() ?? '';
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number.parseInt(process.env.SMTP_PORT ?? '587', 10),
@@ -98,6 +100,113 @@ function buildTextContent(entries) {
   return entries.map(([key, value]) => `${key}: ${value}`).join('\n');
 }
 
+function stripQuotes(text) {
+  return text.replace(/^['\"]+|['\"]+$/g, '').trim();
+}
+
+function parseAddress(value) {
+  if (typeof value !== 'string') {
+    return { email: '', name: '' };
+  }
+
+  const trimmed = value.trim();
+  const angleMatch = trimmed.match(/^(.*)<([^<>]+)>$/);
+
+  if (angleMatch) {
+    const name = stripQuotes(angleMatch[1].trim());
+    const email = angleMatch[2].trim();
+    return {
+      email,
+      name,
+    };
+  }
+
+  const emailOnly = stripQuotes(trimmed.replace(/[<>]/g, ''));
+  return { email: emailOnly, name: '' };
+}
+
+function parseAddressList(value) {
+  if (!value) {
+    return [];
+  }
+
+  const parts = Array.isArray(value) ? value : String(value).split(',');
+  return parts
+    .map((part) => parseAddress(part))
+    .filter((address) => address.email.length > 0)
+    .map((address) => ({
+      email: address.email,
+      ...(address.name ? { name: address.name } : {}),
+    }));
+}
+
+async function sendViaBrevo(mailOptions) {
+  if (!brevoApiKey) {
+    throw new Error('Brevo API key no configurada');
+  }
+
+  if (typeof fetch !== 'function') {
+    throw new Error('fetch no está disponible en este entorno de ejecución');
+  }
+
+  const sender = parseAddress(mailOptions.from);
+  if (!sender.email) {
+    throw new Error('No se pudo determinar el remitente para Brevo.');
+  }
+
+  const to = parseAddressList(mailOptions.to);
+  if (to.length === 0) {
+    throw new Error('No se encontraron destinatarios válidos para Brevo.');
+  }
+
+  const payload = {
+    sender: {
+      email: sender.email,
+      ...(sender.name ? { name: sender.name } : {}),
+    },
+    to,
+    subject: mailOptions.subject ?? '',
+    htmlContent: mailOptions.html ?? '',
+    ...(mailOptions.text ? { textContent: mailOptions.text } : {}),
+  };
+
+  const replyTo = parseAddress(mailOptions.replyTo);
+  if (replyTo.email) {
+    payload.replyTo = {
+      email: replyTo.email,
+      ...(replyTo.name ? { name: replyTo.name } : {}),
+    };
+  }
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': brevoApiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Brevo API respondió ${response.status}: ${errorBody}`);
+  }
+}
+
+async function sendEmail(mailOptions) {
+  if (brevoApiKey) {
+    try {
+      await sendViaBrevo(mailOptions);
+      return;
+    } catch (error) {
+      console.error('Error al enviar con Brevo, intentando SMTP como respaldo.', error);
+    }
+  }
+
+  await transporter.sendMail(mailOptions);
+}
+
 app.post('/api/email', async (req, res) => {
   const payload = req.body ?? {};
 
@@ -142,7 +251,7 @@ app.post('/api/email', async (req, res) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     return res.json({ success: true });
   } catch (error) {
     console.error('Error al enviar el correo', error);
