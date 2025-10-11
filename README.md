@@ -38,6 +38,13 @@ Servicio API mínimo en Node.js que recibe datos de formularios y los envía com
    - `EXTRA_FIELD_LIMIT`: límite de campos adicionales permitidos (por defecto `30`).
    - `SUBJECT_PREFIX`: prefijo para el asunto del correo (por defecto `Nuevo mensaje de formulario`).
    - `CORS_ALLOW_ORIGIN`: origen permitido para peticiones del navegador. Usa `*` para aceptar cualquier origen local (por defecto `*`).
+   - `MESSAGE_SUCCESS_BREVO`: mensaje de éxito cuando Brevo entrega el correo (por defecto `Correo enviado mediante Brevo.`).
+   - `MESSAGE_SUCCESS_SMTP`: mensaje de éxito cuando el SMTP entrega el correo (por defecto `Correo enviado mediante SMTP.`).
+   - `MESSAGE_ERROR_MISSING_REQUIRED`: plantilla para campos obligatorios faltantes. Usa `%fields%` como marcador del listado.
+   - `MESSAGE_ERROR_INVALID_TYPE`: mensaje cuando algún campo no es una cadena de texto.
+   - `MESSAGE_ERROR_EXTRA_LIMIT`: plantilla para exceder el límite de campos adicionales. Usa `%limit%` como marcador.
+   - `MESSAGE_ERROR_SEND`: mensaje de error general al intentar enviar el correo.
+   - `MESSAGE_ERROR_NOT_FOUND`: mensaje para rutas inexistentes.
 
 ## Ejecución
 

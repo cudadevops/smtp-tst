@@ -8,6 +8,27 @@ const LISTEN_PORT = Number.parseInt(process.env.API_PORT ?? '7522', 10);
 const LISTEN_HOST = process.env.API_HOST ?? '127.0.0.1';
 const EXTRA_FIELD_LIMIT = Number.parseInt(process.env.EXTRA_FIELD_LIMIT ?? '30', 10);
 
+const DEFAULT_MESSAGES = {
+  successBrevo: 'Correo enviado mediante Brevo.',
+  successSmtp: 'Correo enviado mediante SMTP.',
+  missingRequired: 'Faltan campos obligatorios: %fields%',
+  invalidType: 'Todos los campos deben ser cadenas de texto.',
+  extraLimit: 'Solo se permiten %limit% campos adicionales.',
+  sendError: 'No se pudo enviar el correo electrónico.',
+  notFound: 'Ruta no encontrada.',
+};
+
+const RESPONSE_MESSAGES = {
+  successBrevo: process.env.MESSAGE_SUCCESS_BREVO?.trim() || DEFAULT_MESSAGES.successBrevo,
+  successSmtp: process.env.MESSAGE_SUCCESS_SMTP?.trim() || DEFAULT_MESSAGES.successSmtp,
+  missingRequired:
+    process.env.MESSAGE_ERROR_MISSING_REQUIRED?.trim() || DEFAULT_MESSAGES.missingRequired,
+  invalidType: process.env.MESSAGE_ERROR_INVALID_TYPE?.trim() || DEFAULT_MESSAGES.invalidType,
+  extraLimit: process.env.MESSAGE_ERROR_EXTRA_LIMIT?.trim() || DEFAULT_MESSAGES.extraLimit,
+  sendError: process.env.MESSAGE_ERROR_SEND?.trim() || DEFAULT_MESSAGES.sendError,
+  notFound: process.env.MESSAGE_ERROR_NOT_FOUND?.trim() || DEFAULT_MESSAGES.notFound,
+};
+
 if (Number.isNaN(LISTEN_PORT) || LISTEN_PORT <= 0) {
   console.error('API_PORT debe ser un número de puerto válido.');
   process.exit(1);
@@ -155,6 +176,13 @@ function parseAddressList(value) {
     }));
 }
 
+function formatMessage(template, replacements = {}) {
+  return Object.entries(replacements).reduce((acc, [key, value]) => {
+    const token = `%${key}%`;
+    return acc.split(token).join(String(value));
+  }, template);
+}
+
 async function sendViaBrevo(mailOptions) {
   if (!brevoApiKey) {
     throw new Error('Brevo API key no configurada');
@@ -220,7 +248,7 @@ async function sendViaBrevo(mailOptions) {
   return {
     method: 'brevo',
     messageId,
-    message: 'Correo enviado mediante Brevo.',
+    message: RESPONSE_MESSAGES.successBrevo,
   };
 }
 
@@ -243,7 +271,7 @@ async function sendEmail(mailOptions) {
     method: 'smtp',
     accepted: info.accepted,
     messageId: info.messageId ?? null,
-    message: 'Correo enviado mediante SMTP.',
+    message: RESPONSE_MESSAGES.successSmtp,
   };
 }
 
@@ -253,7 +281,9 @@ app.post('/api/email', async (req, res) => {
   const missingRequired = orderedFieldNames.filter((field) => !isValidString(payload[field]));
   if (missingRequired.length) {
     return res.status(400).json({
-      error: `Faltan campos obligatorios: ${missingRequired.join(', ')}`,
+      error: formatMessage(RESPONSE_MESSAGES.missingRequired, {
+        fields: missingRequired.join(', '),
+      }),
     });
   }
 
@@ -261,7 +291,7 @@ app.post('/api/email', async (req, res) => {
 
   if (entries.some(([, value]) => typeof value !== 'string')) {
     return res.status(400).json({
-      error: 'Todos los campos deben ser cadenas de texto.',
+      error: RESPONSE_MESSAGES.invalidType,
     });
   }
 
@@ -278,7 +308,9 @@ app.post('/api/email', async (req, res) => {
 
   if (additionalEntries.length > EXTRA_FIELD_LIMIT) {
     return res.status(400).json({
-      error: `Solo se permiten ${EXTRA_FIELD_LIMIT} campos adicionales.`,
+      error: formatMessage(RESPONSE_MESSAGES.extraLimit, {
+        limit: EXTRA_FIELD_LIMIT,
+      }),
     });
   }
 
@@ -309,12 +341,12 @@ app.post('/api/email', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al enviar el correo', error);
-    return res.status(500).json({ error: 'No se pudo enviar el correo electrónico.' });
+    return res.status(500).json({ error: RESPONSE_MESSAGES.sendError });
   }
 });
 
 app.use((req, res) => {
-  res.status(404).json({ error: 'Ruta no encontrada.' });
+  res.status(404).json({ error: RESPONSE_MESSAGES.notFound });
 });
 
 app.listen(LISTEN_PORT, LISTEN_HOST, () => {
