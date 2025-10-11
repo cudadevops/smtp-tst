@@ -37,6 +37,7 @@ Servicio API mínimo en Node.js que recibe datos de formularios y los envía com
    - `API_HOST`: interfaz de red para escuchar (por defecto `127.0.0.1`).
    - `EXTRA_FIELD_LIMIT`: límite de campos adicionales permitidos (por defecto `30`).
    - `SUBJECT_PREFIX`: prefijo para el asunto del correo (por defecto `Nuevo mensaje de formulario`).
+   - `CORS_ALLOW_ORIGIN`: origen permitido para peticiones del navegador. Usa `*` para aceptar cualquier origen local (por defecto `*`).
 
 ## Ejecución
 

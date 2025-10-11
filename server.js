@@ -44,6 +44,21 @@ const transporter = nodemailer.createTransport({
 
 const app = express();
 
+const allowedOrigin = process.env.CORS_ALLOW_ORIGIN?.trim() ?? '*';
+
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '600');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
+
 app.use(express.json());
 app.use(
   express.urlencoded({
